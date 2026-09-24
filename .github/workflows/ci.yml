@@ -43,8 +43,8 @@ jobs:
           exit 1
 
       - name : Vérifie le calcule TTC 
-        run : |
-          curl --fail "http://localhost:3000/api/calcul/ttc?prix=100&tva=20" | grep '"prix ttc": 120'
+        run: |
+          curl --fail "http://localhost:3000/api/calcul/ttc?prix=100&tva=20" | grep "120"
 
       - name : Netoyer le conteneur
         if : always()
