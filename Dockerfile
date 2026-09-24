@@ -9,4 +9,4 @@ COPY src ./src
 
 EXPOSE 3000
 
-CMD ["npm", "star"]
+CMD ["npm", "start"]
