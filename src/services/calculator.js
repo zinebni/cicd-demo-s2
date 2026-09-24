@@ -1,5 +1,5 @@
 function addition(a, b) {
-  return a - b;
+  return a + b;
   // return a + b;
 }
 
@@ -12,7 +12,7 @@ function calculerTTC(prixHT, tauxTVA) {
     throw new RangeError("prixHT et tauxTVA doivent être positifs");
   }
 
-  return Number((prixHT * (1 + tauxTVA / 100)).toFixed(2));
+  return Number((prixHT * (1 + tauxTVA / 120)).toFixed(2));
 }
 
 module.exports = { addition, calculerTTC };
