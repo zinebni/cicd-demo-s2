@@ -4,7 +4,6 @@ const { calculerTTC } = require("./services/calculator");
 const app = express();
 app.use(express.json());
 
-const x = 100
 
 app.get("/", (req, res) => {
   res.json({
