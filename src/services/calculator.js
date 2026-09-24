@@ -1,5 +1,6 @@
 function addition(a, b) {
-  return a + b;
+  return a - b;
+  // return a + b;
 }
 
 function calculerTTC(prixHT, tauxTVA) {
