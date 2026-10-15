@@ -67,13 +67,13 @@ jobs:
 
       - name : Tagger l'image validee
         run : |
-         docker tag cicd-demo-s2 "$IMAGE_NAME:${{GITHUB_SHA}}"
+         docker tag cicd-demo-s2 "$IMAGE_NAME:${GITHUB_SHA}"
          docker tag cicd-demo-s2 "$IMAGE_NAME:latest"
          docker image ls "$IMAGE_NAME"
 
       - name : PUblier dans GHCR
         run : |
-          docker push "$IMAGE_NAME:${{GITHUB_SHA}}"
+          docker push "$IMAGE_NAME:${GITHUB_SHA}"
           docker push "$IMAGE_NAME:latest"
 
         
