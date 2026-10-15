@@ -5,7 +5,7 @@ on:
     branches: [main]
 permissions :
         contents : read
-        packages : read
+        packages : write
 jobs:
   build:
     runs-on: ubuntu-latest  # we define the runer 
