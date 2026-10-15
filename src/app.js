@@ -14,7 +14,7 @@ app.get("/", (req, res) => {
 
 app.get("/api/health", (req, res) => {
   res.json({ status: "OK",
-             version: "1.0"
+             version: "2.0"
    });
 });
 

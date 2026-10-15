@@ -6,7 +6,7 @@ describe("API", () => {
     const response = await request(app).get("/api/health");
     expect(response.statusCode).toBe(200);
     expect(response.body).toEqual({ status: "OK",
-                                    version: "1.0"
+                                    version: "2.0"
      });
   });
 
