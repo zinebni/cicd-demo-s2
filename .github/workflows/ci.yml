@@ -3,7 +3,9 @@ name: CI
 on:
   push:
     branches: [main]
-
+permissions :
+        contents : read
+        packages : write
 jobs:
   build:
     runs-on: ubuntu-latest  # we define the runer 
@@ -50,4 +52,31 @@ jobs:
         if : always()
         run : docker rm -f cicd-demo || true
 
+      - name : Preparer le nom l'image
+        run : |
+          REPO="${{ github.repository  }}"
+          IMAGE_NAME="ghcr.io/${REPO}"
+          echo "IMAGE_NAME=$IMAGE_NAME" >> $GITHUB_ENV
+
+      - name : Connection a GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name : Tagger l'image validee
+        run : |
+         docker tag cicd-demo-s2 "$IMAGE_NAME:${{GITHUB_SHA}}"
+         docker tag cicd-demo-s2 "$IMAGE_NAME:latest"
+         docker image ls "$IMAGE_NAME"
+
+      - name : PUblier dans GHCR
+        run : |
+          docker push "$IMAGE_NAME:${{GITHUB_SHA}}"
+          docker push "$IMAGE_NAME:latest"
+
+        
+
+     
           
