@@ -114,7 +114,7 @@ jobs:
       - name: Lancer le staging
         run: |
           docker run -d --name cicd-staging \
-            -p 3999:3000 "$IMAGE_NAME:${GITHUB_SHA}"
+            -p 3000:3000 "$IMAGE_NAME:${GITHUB_SHA}"
           docker ps --filter name=cicd-staging
 
       - name: Attendre l'application
