@@ -1,0 +1,39 @@
+name: Deploy - Connexion SSH
+
+on:
+  workflow_dispatch:
+
+jobs:
+  connexion:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    env:
+      SSH_HOST: ${{ secrets.SSH_HOST }}
+      SSH_USER: ${{ secrets.SSH_USER }}
+
+    steps:
+      - name: Préparer SSH
+        env:
+          SSH_KEY: ${{ secrets.SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.KNOWN_HOSTS }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_ed25519
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/id_ed25519 ~/.ssh/known_hosts
+
+      - name: Tester la connexion
+        run: |
+          ssh -i ~/.ssh/id_ed25519 \
+            -o BatchMode=yes \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes \
+            -o ConnectTimeout=10 \
+            "$SSH_USER@$SSH_HOST" 'whoami && docker ps'
+
+      - name: Effacer la clé
+        if: always()
+        run: rm -f ~/.ssh/id_ed25519
