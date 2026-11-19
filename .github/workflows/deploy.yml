@@ -1,16 +1,30 @@
+
 name: Deploy
 
 on:
   workflow_dispatch:
     inputs:
       tag:
-        description: tag de l'image
+        description: "Tag de l'image Docker à déployer"
         required: true
+        type: string
       environment:
-        description: cible
+        description: "Environnement cible"
+        required: true
         type: choice
-        options: [staging, production]
+        options:
+          - staging
+          - production
         default: staging
+      test_local:
+        description: "Tester le rollback avec l'image locale s5-test-ko"
+        required: true
+        type: boolean
+        default: false
+
+concurrency:
+  group: deploy-ec2
+  cancel-in-progress: false
 
 jobs:
   deploy:
@@ -18,37 +32,94 @@ jobs:
     environment: ${{ inputs.environment }}
     permissions:
       contents: read
-      packages: read
+
+    env:
+      TAG: ${{ inputs.tag }}
+      TEST_LOCAL: ${{ inputs.test_local }}
+      SSH_HOST: ${{ secrets.SSH_HOST }}
+      SSH_USER: ${{ secrets.SSH_USER }}
 
     steps:
-      - name: Reconstruire la référence
+      - name: Valider le tag
+        run: |
+          if [[ ! "$TAG" =~ ^[a-zA-Z0-9_][a-zA-Z0-9_.-]{0,127}$ ]]; then
+            echo "Tag invalide"
+            exit 1
+          fi
+
+      - name: Préparer SSH
         env:
-          TAG: ${{ inputs.tag }}
+          SSH_KEY: ${{ secrets.SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.KNOWN_HOSTS }}
         run: |
-          REPO="$(echo "${GITHUB_REPOSITORY}" | tr '[:upper:]' '[:lower:]')"
-          echo "IMAGE_NAME=ghcr.io/$REPO" >> "$GITHUB_ENV"
-          echo "TAG=$TAG" >> "$GITHUB_ENV"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_ed25519
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/id_ed25519 ~/.ssh/known_hosts
 
-      - name: Télécharger le tag demandé
-        run: docker pull "$IMAGE_NAME:$TAG"
-
-      - name: Démarrer
+      - name: Tester la connexion
         run: |
-          docker run -d --name cicd-deploy -p 3000:3000 "$IMAGE_NAME:$TAG"
+          ssh -i ~/.ssh/id_ed25519 \
+            -o BatchMode=yes \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes \
+            -o ConnectTimeout=10 \
+            "$SSH_USER@$SSH_HOST" 'whoami && docker ps'
 
-      - name: Vérifier
+      - name: Déployer sur EC2
         run: |
-          URL=http://localhost:3000
-          for i in {1..15}; do
-            curl --fail --silent "$URL/api/health" > /dev/null && break
-            sleep 2
-          done
-          echo "image déployée : $IMAGE_NAME:$TAG"
-          curl --fail --silent "$URL/"; echo
-          curl --fail --silent "$URL/api/calcul/ttc?prix=100&tva=20"; echo
+          SCRIPT=deploy.sh
 
-      - name: Nettoyer
+          if [ "$TEST_LOCAL" = "true" ]; then
+            if [ "$TAG" != "s5-test-ko" ]; then
+              echo "Le test local exige le tag s5-test-ko"
+              exit 1
+            fi
+            SCRIPT=deploy-test-local.sh
+          fi
+
+          ssh -i ~/.ssh/id_ed25519 \
+            -o BatchMode=yes \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes \
+            "$SSH_USER@$SSH_HOST" \
+            "cd /opt/atlas && ./$SCRIPT '$TAG'"
+
+      - name: Vérifier la version sur EC2
+        run: |
+          ssh -i ~/.ssh/id_ed25519 \
+            -o BatchMode=yes \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes \
+            "$SSH_USER@$SSH_HOST" "bash -s -- '$TAG'" <<'REMOTE'
+          set -euo pipefail
+          cd /opt/atlas
+          . ./image.env
+
+          attendu="$IMAGE_NAME:$1"
+          observe=$(docker inspect --format '{{.Config.Image}}' atlas-app)
+
+          echo "Image en service : $observe"
+
+          test "$observe" = "$attendu"
+          test "$(cat current_tag)" = "$1"
+
+          curl -fsS --max-time 5 http://localhost/api/health
+          printf '\n'
+          REMOTE
+
+      - name: Vérifier l'application publiquement
+        run: |
+          URL="http://$SSH_HOST"
+
+          curl -fsS --connect-timeout 5 --max-time 10 \
+            "$URL/api/health"
+          printf '\n'
+
+          curl -fsS --connect-timeout 5 --max-time 10 \
+            "$URL/api/calcul?prix=100&taxe=20"
+          printf '\n'
+
+      - name: Effacer la clé SSH
         if: always()
-        run: |
-          docker logs cicd-deploy || true
-          docker rm -f cicd-deploy || true
+        run: rm -f ~/.ssh/id_ed25519
