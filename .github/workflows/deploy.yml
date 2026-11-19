@@ -117,7 +117,7 @@ jobs:
           printf '\n'
 
           curl -fsS --connect-timeout 5 --max-time 10 \
-            "$URL/api/calcul?prix=100&taxe=20"
+            "$URL/api/calcul/ttc?prix=100&tva=20"
           printf '\n'
 
       - name: Effacer la clé SSH
